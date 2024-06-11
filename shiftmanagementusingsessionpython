@@ -1,29 +1,44 @@
 #step-1 shiftmanage/models.py
+
 from django.db import models
+from django.utils import timezone
 
 class Shift(models.Model):
     name = models.CharField(max_length=100)
     start_time = models.TimeField()
     end_time = models.TimeField()
 
+    def __str__(self):
+        return self.name
+
 class Operator(models.Model):
     name = models.CharField(max_length=100)
     shift = models.ForeignKey(Shift, on_delete=models.CASCADE)
+    login_time = models.DateTimeField(null=True, blank=True)
+    money_collected = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+
+    def __str__(self):
+        return self.name
 
 #STEP-2 shiftmanage/views.py
+
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from .models import Shift, Operator
+from django.utils import timezone
 
 def operator_login(request):
     if request.method == 'POST':
         operator_name = request.POST.get('operator_name')
         shift_id = request.POST.get('shift_id')
-        if Operator.objects.filter(name=operator_name, shift_id=shift_id).exists():
+        try:
+            operator = Operator.objects.get(name=operator_name, shift_id=shift_id)
+            operator.login_time = timezone.now()
+            operator.save()
             request.session['operator_name'] = operator_name
             request.session['shift_id'] = shift_id
             return redirect('shift_detail', shift_id=shift_id)
-        else:
+        except Operator.DoesNotExist:
             messages.error(request, 'Invalid operator or shift')
     shifts = Shift.objects.all()
     return render(request, 'shifts/operator_login.html', {'shifts': shifts})
